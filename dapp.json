@@ -1,3 +1,19 @@
 {
-  "secrets": []
+  "name": "My Fitness",
+  "description": "Track food, water, workouts and weight in one simple place.",
+  "secrets": [],
+  "tests": [
+    {
+      "id": "home.dashboard",
+      "name": "Home dashboard renders today's summary",
+      "path": "/",
+      "expectText": "kcal left",
+      "visual": true,
+      "impact": ["public/**", "server.js"]
+    },
+    { "name": "Food tab shows calories, macros and water", "path": "/#food", "expectText": "Calories remaining" },
+    { "name": "Workout tab shows steps and workout log", "path": "/#workout", "expectText": "Steps (goal" },
+    { "name": "Progress tab shows goals and achievements", "path": "/#progress", "expectText": "Achievements" },
+    { "name": "Profile tab shows the BMI, BMR and TDEE calculator", "path": "/#profile", "expectText": "Body numbers" }
+  ]
 }

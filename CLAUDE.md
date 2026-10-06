@@ -58,26 +58,6 @@ this check for you and tells you when you are behind. It is silent offline, so
 its silence is not proof the checkout is current. Inside Homeroom's dev-chat
 the platform fixes the base commit, and none of this applies.
 
-## Starter template
-
-The screen this app currently ships — the hero, the "What's already
-working" card, and the Press! example (the demo markup in
-`public/index.html`, the `/api/press` and `/api/leaderboard` routes, and
-the `presses` table bootstrap in `server.js`) — is placeholder content
-from the Homeroom starter template, not product intent.
-
-When the user asks for their first real feature, REPLACE the template
-screen rather than building alongside it:
-
-- remove the `usernode-starter-notice@1` block in `public/index.html`
-  (both sentinel comments and everything between them),
-- remove or repurpose the "Try the example" card, its demo endpoints and
-  the `presses` table as appropriate,
-- rewrite `README.md` to describe the actual app.
-
-Keep the `usernode-dev-console@1` forwarder `<script>` when rewriting the
-HTML — that block is platform infrastructure, not template content.
-
 If a rule below this line conflicts with the hosted conventions, the
 hosted conventions win. This file is **app-specific** — write down
 things about *this* app that belong in the repo: product intent,
@@ -88,11 +68,28 @@ tables you've marked private), etc.
 
 ## About My Fitness
 
-_(add a sentence or two of product context here so Claude Code has a
-shared understanding of what this app is for)_
+A simple personal fitness tracker: food and macros, water, steps,
+workouts, weight, goals, achievements and reminders, with a Home dashboard
+and five bottom tabs (Home, Food, Workout, Progress, Profile).
 
 ## App-specific conventions
 
-_(optional — e.g. "all currency values stored as integer cents, not
-floats"; "the `posts` table is append-only"; "avoid adding new
-dependencies"; etc.)_
+- Every table (`profiles`, `food_entries`, `water_entries`, `daily_steps`,
+  `workouts`, `weight_entries`) is `staging:private`: it is personal health
+  data. Staging previews start empty; each reviewer logs their own data.
+- Units are metric throughout (kg, cm, km, ml).
+- "Today" is the viewer's local calendar day. The client sends `day`
+  (YYYY-MM-DD, from `usernode.now()`) on every call; the server never
+  computes the day itself.
+- The profile's current weight is the latest row in `weight_entries`;
+  there is no weight column on `profiles`.
+- Goals left empty in the profile use the suggested values computed in
+  `autoGoals()` in `public/app.js`; achievements are computed client-side
+  from the per-day totals `/api/state` returns.
+- Light and dark looks: Auto follows the Homeroom theme; the user can pin
+  Light or Dark in Profile (saved in `profiles.settings.theme`).
+- Reminders fire only while the app is open (in-app toast, plus a browser
+  notification when permitted and the page is hidden).
+- Chart colours (validated for colour-blind separation): calories and
+  single-series charts violet-500, water sky-600, protein blue-500, carbs
+  amber-600, fat pink-500.
