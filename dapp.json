@@ -1,4 +1,8 @@
 {
+  "icon": {
+    "image": "brand/icon.png",
+    "emoji": "💪"
+  },
   "name": "My Fitness",
   "description": "Track food, water, workouts and weight in one simple place.",
   "secrets": [],
