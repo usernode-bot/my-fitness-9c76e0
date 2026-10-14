@@ -315,6 +315,38 @@ app.post('/api/food', wrap(async (req, res) => {
   res.json({ id: rows[0].id });
 }));
 
+// Copy a day's food log into another day (usually yesterday into today),
+// whole day or one meal. Verbatim: no dedupe against what the target day
+// already holds. Both sides of the INSERT ... SELECT are bound to the
+// platform user id, so another user's rows can never be read or written.
+app.post('/api/log/copy', wrap(async (req, res) => {
+  const b = req.body || {};
+  const target = day(b.day);
+  let source;
+  if (b.sourceDay !== undefined && b.sourceDay !== null && b.sourceDay !== '') {
+    source = day(b.sourceDay);
+  } else {
+    // Default to the calendar day before the target, stepped in UTC from
+    // the given string. The server never computes "today".
+    const dt = new Date(target + 'T00:00:00Z');
+    dt.setUTCDate(dt.getUTCDate() - 1);
+    source = dt.toISOString().slice(0, 10);
+  }
+  if (source === target) throw new BadInput('Pick a different day to copy from');
+  const meal = oneOf(b.meal, MEALS, 'Meal', null);
+  // The ORDER BY keeps the source order, so the new serial ids — and the
+  // display order in /api/state — match the source day.
+  const result = await pool.query(
+    `INSERT INTO food_entries (user_id, day, meal, name, calories, protein, carbs, fat)
+     SELECT user_id, $2, meal, name, calories, protein, carbs, fat
+       FROM food_entries
+      WHERE user_id = $1 AND day = $3 AND ($4::text IS NULL OR meal = $4)
+      ORDER BY created_at, id`,
+    [req.user.id, target, source, meal],
+  );
+  res.json({ copied: result.rowCount });
+}));
+
 app.delete('/api/food/:id', wrap(async (req, res) => {
   await pool.query('DELETE FROM food_entries WHERE id = $1 AND user_id = $2', [Number(req.params.id) || 0, req.user.id]);
   res.json({ ok: true });

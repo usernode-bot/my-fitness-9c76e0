@@ -52,6 +52,7 @@
     right: '<path d="m9 18 6-6-6-6"/>',
     timer: '<path d="M10 2h4"/><path d="M12 14l3-3"/><circle cx="12" cy="14" r="8"/>',
     lock: '<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>',
+    copy: '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
   };
   function icon(name, cls) {
     return '<svg class="' + (cls || 'w-5 h-5') + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + ICONS[name] + '</svg>';
@@ -420,7 +421,9 @@
       '<p class="mt-1 text-xs ' + MUTED + ' tabular-nums">' + fmt(g.calories) + ' goal &minus; ' + fmt(st.calories) + ' food + ' + fmt(burned) + ' exercise</p>' +
       '<div class="mt-3">' + bar(st.calories, g.calories, 'bg-violet-500') + '</div>' +
       '<div class="mt-4">' + macroRows(st, g) + '</div>' +
-      '<button type="button" data-action="add-food" class="mt-4 w-full ' + BTN_PRIMARY + '">' + icon('plus', 'w-4 h-4') + 'Add food</button></div>';
+      '<div class="mt-4 flex gap-2">' +
+      '<button type="button" data-action="add-food" class="flex-1 ' + BTN_PRIMARY + '">' + icon('plus', 'w-4 h-4') + 'Add food</button>' +
+      '<button type="button" data-action="copy-food" class="flex-1 ' + BTN_SECONDARY + '">' + icon('copy', 'w-4 h-4') + (d === today() ? 'Repeat yesterday' : 'Repeat previous day') + '</button></div></div>';
 
     // Water tracker
     html += h2('Water');
@@ -439,8 +442,11 @@
     MEALS.forEach(function (m) {
       var items = t.food.filter(function (f) { return f.meal === m.id; });
       var kcal = items.reduce(function (s, f) { return s + f.calories; }, 0);
+      var copyLabel = 'Copy ' + (d === today() ? 'yesterday&#39;s' : 'the day before&#39;s') + ' ' + m.label;
       html += h2(m.label + (kcal ? ' <span class="text-sm font-normal ' + MUTED + '">' + fmt(kcal) + ' kcal</span>' : ''),
-        '<button type="button" data-action="add-food" data-meal="' + m.id + '" class="' + BTN_ICON + '" aria-label="Add to ' + m.label + '">' + icon('plus', 'w-5 h-5') + '</button>');
+        '<div class="flex items-center gap-0.5">' +
+        '<button type="button" data-action="copy-food" data-meal="' + m.id + '" class="' + BTN_ICON + '" aria-label="' + copyLabel + '">' + icon('copy', 'w-5 h-5') + '</button>' +
+        '<button type="button" data-action="add-food" data-meal="' + m.id + '" class="' + BTN_ICON + '" aria-label="Add to ' + m.label + '">' + icon('plus', 'w-5 h-5') + '</button></div>');
       html += '<div class="' + CARD + ' py-1">' + (items.length ? '<ul class="divide-y divide-zinc-100 dark:divide-zinc-800">' + items.map(function (f) {
         return '<li class="flex items-center gap-3 py-2.5"><div class="flex-1 min-w-0"><p class="text-sm font-medium truncate">' + esc(f.name) + '</p>' +
           '<p class="text-xs ' + MUTED + ' tabular-nums">P ' + fmt(f.protein) + ' g &middot; C ' + fmt(f.carbs) + ' g &middot; F ' + fmt(f.fat) + ' g</p></div>' +
@@ -508,6 +514,25 @@
         save('POST', '/api/water', { day: S.viewDay, ml: form.ml.value }).then(close).catch(function () {});
       };
     });
+  }
+
+  // Copy the previous day's food log into the day being viewed, whole day
+  // or one meal. While a copy is in flight further taps are ignored, so an
+  // accidental double tap does not copy twice.
+  function copyFood(meal) {
+    if (S.copying) return;
+    S.copying = true;
+    var src = S.viewDay === today() ? 'yesterday' : 'the day before';
+    var m = meal && MEALS.find(function (x) { return x.id === meal; });
+    return save('POST', '/api/log/copy', { day: S.viewDay, sourceDay: addDays(S.viewDay, -1), meal: meal || undefined })
+      .then(function (r) {
+        var n = (r && r.copied) || 0;
+        var foods = n === 1 ? 'food' : 'foods';
+        if (!n) toast(m ? 'Nothing logged for ' + m.label + ' ' + src : 'Nothing logged ' + src);
+        else toast(m ? 'Copied ' + n + ' ' + foods + ' to ' + m.label : 'Copied ' + n + ' ' + foods + ' from ' + src);
+      })
+      .catch(function () {})
+      .then(function () { S.copying = false; });
   }
 
   // ------------------------------------------------------------ Workout
@@ -1136,6 +1161,7 @@
     if (ds.go) return go(ds.go);
     if (ds.day) { S.viewDay = addDays(S.viewDay, +ds.day); if (S.viewDay > today()) S.viewDay = today(); return load(); }
     if (ds.action === 'add-food') return addFoodSheet(ds.meal);
+    if (ds.action === 'copy-food') return copyFood(ds.meal);
     if (ds.action === 'add-workout') return addWorkoutSheet();
     if (ds.action === 'custom-water') return customWaterSheet();
     if (ds.action === 'log-weight') return logWeightSheet();
